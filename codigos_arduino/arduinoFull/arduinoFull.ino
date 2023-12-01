@@ -34,7 +34,7 @@ const int in4 = 11; // Pin IN4 del L293D para el motor derecho
 const int enA = 6; // Pin ENA del L293D para controlar la velocidad del motor izquierdo
 const int enB = 9; // Pin ENB del L293D para controlar la velocidad del motor derecho
 
-const int velocidadMaxima = 240; // Ajusta la velocidad máxima según sea necesario
+const int velocidadMaxima = 250; // Ajusta la velocidad máxima según sea necesario
 
 void setup() {
   // Serial Monitor Setup (for ESP82)
@@ -82,8 +82,8 @@ void loop() {
           turnRight();
           if (dist <= 10){
             phase += 1;
+          }
         }
-      
         // Check if it's time to update Server with new data
         if (currentMillis - lastPrintTime >= printInterval) {
           lastPrintTime = currentMillis; // Update the last print time
@@ -95,6 +95,7 @@ void loop() {
     }
   }
 }
+
 
 void computeData() {
   // Get current position

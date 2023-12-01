@@ -3,13 +3,14 @@
 
 TinyGPSPlus gps;
 
-const int in1 = 2; // Pin IN1 del L298N para el motor izquierdo
-const int in2 = 3; // Pin IN2 del L298N para el motor izquierdo
-const int in3 = 4; // Pin IN3 del L298N para el motor derecho
-const int in4 = 5; // Pin IN4 del L298N para el motor derecho
+// Motor Variables
+const int in1 = 7; // Pin IN1 del L293D para el motor izquierdo
+const int in2 = 8; // Pin IN2 del L293D para el motor izquierdo
+const int in3 = 10; // Pin IN3 del L293D para el motor derecho
+const int in4 = 11; // Pin IN4 del L293D para el motor derecho
 
-const int enA = 6; // Pin ENA del L298N para controlar la velocidad del motor izquierdo
-const int enB = 9; // Pin ENB del L298N para controlar la velocidad del motor derecho
+const int enA = 6; // Pin ENA del L293D para controlar la velocidad del motor izquierdo
+const int enB = 9; // Pin ENB del L293D para controlar la velocidad del motor derecho
 
 const int velocidadMaxima = 255; // Ajusta la velocidad máxima según sea necesario
 
@@ -21,19 +22,16 @@ void setup() {
   pinMode(in4, OUTPUT);
   pinMode(enA, OUTPUT);
   pinMode(enB, OUTPUT);
+  Serial.println("Setup done.");
 }
 
 void loop() {
+  Serial.println("Starting..");
+  Serial.println("fw..");
   avanzar(10); // Avanza 10 metros
   esperar(10000); // Espera 10 segundos
+  Serial.println("girandoDer..");
   girarIzquierda(); // Girar izquierda
-  avanzar(10); // Avanza 10 metros
-  esperar(10000); // Espera 10 segundos
- girarIzquierda(); // Girar izquierda
-avanzar(10); // Avanza 10 metros
- esperar(10000); // Espera 10 segundos
-girarIzquierda(); // Girar izquierda
-avanzar(10); // Avanza 10 metros
 }
 
 void avanzar(int distancia) {
@@ -44,7 +42,7 @@ void avanzar(int distancia) {
   
   analogWrite(enA, velocidadMaxima);
   analogWrite(enB, velocidadMaxima);
-  delay(500);
+  delay(5000);
   
   detenerMotores();
 }
@@ -59,7 +57,7 @@ void girarIzquierda() {
   analogWrite(enB, velocidadMaxima);
 
   // Ajusta el tiempo necesario para girar a la izquierda
-  delay(500);
+  delay(5000);
   
   detenerMotores();
 }
