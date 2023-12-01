@@ -22,7 +22,7 @@ void setup() {
 
 void loop() {
   unsigned long currentMillis = millis();
-
+  
   // Read accelerometer and gyroscope data
   readIMUData();
 

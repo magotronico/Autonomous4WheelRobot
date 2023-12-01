@@ -9,6 +9,7 @@ float GyroX, GyroY, GyroZ;
 float accAngleX, accAngleY, gyroAngleX, gyroAngleY, yaw;
 float AccErrorX, AccErrorY, GyroErrorX, GyroErrorY, GyroErrorZ;
 float elapsedTime, currentTime, previousTime;
+unsigned long currentMillis; // Variable to store the last print time
 unsigned long lastPrintTime = 0; // Variable to store the last print time
 const long printInterval = 10; // Print interval in milliseconds
 
@@ -17,6 +18,7 @@ TinyGPSPlus gps;
 SoftwareSerial gpsSerial(2, 3); // RX, TX
 double currPos[2]; // Current position
 double prevPos[2] = {0.000000000,0.000000000}; // Previous position
+double vel = 0; // Velocity
 
 // Path planing variables
 long double dist = 0;
@@ -24,13 +26,13 @@ float angle = 0;
 unsigned int phase = 0; // counter % 2 = 0 -> straight, counter % 2 = 1 -> turn
 
 // Motor Variables
-const int in1 = 2; // Pin IN1 del L298N para el motor izquierdo
-const int in2 = 3; // Pin IN2 del L298N para el motor izquierdo
-const int in3 = 4; // Pin IN3 del L298N para el motor derecho
-const int in4 = 5; // Pin IN4 del L298N para el motor derecho
+const int in1 = 7; // Pin IN1 del L293D para el motor izquierdo
+const int in2 = 8; // Pin IN2 del L293D para el motor izquierdo
+const int in3 = 10; // Pin IN3 del L293D para el motor derecho
+const int in4 = 11; // Pin IN4 del L293D para el motor derecho
 
-const int enA = 6; // Pin ENA del L298N para controlar la velocidad del motor izquierdo
-const int enB = 9; // Pin ENB del L298N para controlar la velocidad del motor derecho
+const int enA = 6; // Pin ENA del L293D para controlar la velocidad del motor izquierdo
+const int enB = 9; // Pin ENB del L293D para controlar la velocidad del motor derecho
 
 const int velocidadMaxima = 240; // Ajusta la velocidad máxima según sea necesario
 
@@ -65,16 +67,21 @@ void loop() {
     if (gps.encode(gpsSerial.read())) {
       if (gps.location.isUpdated()) {
         // Get current time
-        unsigned long currentMillis = millis();
+        currentMillis = millis();
         // Compute distance and angle
         computeData();
         
         // Path Planning Algorithm
         if((phase % 2 == 0) && (dist <= 10) && (phase <= 8)){
           go();
+          if (dist <= 10){
+            phase += 1;
+          }
         }
         if((phase % 2 != 0) && (angle <= 91) && (phase <= 8)){
           turnRight();
+          if (dist <= 10){
+            phase += 1;
         }
       
         // Check if it's time to update Server with new data
@@ -96,6 +103,9 @@ void computeData() {
   // Compute distance
   dist = sqrt(pow(currPos[0] - prevPos[0], 2) + pow(currPos[1] - prevPos[1], 2));
 
+  // Compute velocity
+  vel = dist / (currentMillis - lastPrintTime);
+
   // Compute angle:
   readIMUData(); // Read accelerometer and gyroscope data
   calculateAngles(); // Calculate roll, pitch, yaw
@@ -111,7 +121,7 @@ void sendData(){
   Serial.print(",");
   Serial.print(gps.location.lng(), 9);
   Serial.print(",");
-  Serial.println(yaw);
+  Serial.println(vel);
 }
 
 void readIMUData() {
