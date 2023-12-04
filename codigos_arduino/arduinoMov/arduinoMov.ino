@@ -29,16 +29,17 @@ void loop() {
   Serial.println("Starting..");
   Serial.println("fw..");
   avanzar(10); // Avanza 10 metros
-  esperar(10000); // Espera 10 segundos
+  esperar(2000); // Espera 10 segundos
   Serial.println("girandoDer..");
   girarIzquierda(); // Girar izquierda
+  esperar(2000); // Espera 10 segundos
 }
 
 void avanzar(int distancia) {
   digitalWrite(in1, HIGH);
   digitalWrite(in2, LOW);
-  digitalWrite(in3, HIGH);
-  digitalWrite(in4, LOW);
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, HIGH);
   
   analogWrite(enA, velocidadMaxima);
   analogWrite(enB, velocidadMaxima);
@@ -50,8 +51,8 @@ void avanzar(int distancia) {
 void girarIzquierda() {
   digitalWrite(in1, LOW);
   digitalWrite(in2, HIGH);
-  digitalWrite(in3, HIGH);
-  digitalWrite(in4, LOW);
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, HIGH);
   
   analogWrite(enA, velocidadMaxima);
   analogWrite(enB, velocidadMaxima);

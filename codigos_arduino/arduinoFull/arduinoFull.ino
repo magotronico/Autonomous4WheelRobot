@@ -16,12 +16,15 @@ const long printInterval = 10; // Print interval in milliseconds
 // GPS Variables
 TinyGPSPlus gps;
 SoftwareSerial gpsSerial(2, 3); // RX, TX
-double currPos[2]; // Current position
-double prevPos[2] = {0.000000000,0.000000000}; // Previous position
+double currPos_lat; // Current position
+double currPos_lng;
+double prevPos_lat = 0.0; // Previous position
+double prevPos_lng = 0.0;
 double vel = 0; // Velocity
 
 // Path planing variables
-long double dist = 0;
+double dist = 0;
+double dist_tot = 0;
 float angle = 0;
 unsigned int phase = 0; // counter % 2 = 0 -> straight, counter % 2 = 1 -> turn
 
@@ -31,78 +34,18 @@ const int in2 = 8; // Pin IN2 del L293D para el motor izquierdo
 const int in3 = 10; // Pin IN3 del L293D para el motor derecho
 const int in4 = 11; // Pin IN4 del L293D para el motor derecho
 
-const int enA = 6; // Pin ENA del L293D para controlar la velocidad del motor izquierdo
-const int enB = 9; // Pin ENB del L293D para controlar la velocidad del motor derecho
+const int enA = 9; // Pin ENA del L293D para controlar la velocidad del motor izquierdo
+const int enB = 6; // Pin ENB del L293D para controlar la velocidad del motor derecho
 
-const int velocidadMaxima = 250; // Ajusta la velocidad máxima según sea necesario
-
-void setup() {
-  // Serial Monitor Setup (for ESP82)
-  Serial.begin(9600);
-
-  // Motor Setup
-  pinMode(in1, OUTPUT);
-  pinMode(in2, OUTPUT);
-  pinMode(in3, OUTPUT);
-  pinMode(in4, OUTPUT);
-  pinMode(enA, OUTPUT);
-  pinMode(enB, OUTPUT);
-
-  // IMU Setup
-  Wire.begin();
-  Wire.beginTransmission(MPU);
-  Wire.write(0x6B);
-  Wire.write(0x00);
-  Wire.endTransmission(true);
-
-  calibrateIMU(); // Calibrate IMU
-  delay(20);
-
-  // GPS Setup
-  gpsSerial.begin(9600);
-}
-
-void loop() {
-  while (gpsSerial.available() > 0) {
-    if (gps.encode(gpsSerial.read())) {
-      if (gps.location.isUpdated()) {
-        // Get current time
-        currentMillis = millis();
-        // Compute distance and angle
-        computeData();
-        
-        // Path Planning Algorithm
-        if((phase % 2 == 0) && (dist <= 10) && (phase <= 8)){
-          go();
-          if (dist <= 10){
-            phase += 1;
-          }
-        }
-        if((phase % 2 != 0) && (angle <= 91) && (phase <= 8)){
-          turnRight();
-          if (dist <= 10){
-            phase += 1;
-          }
-        }
-        // Check if it's time to update Server with new data
-        if (currentMillis - lastPrintTime >= printInterval) {
-          lastPrintTime = currentMillis; // Update the last print time
-          sendData();
-        }
-
-        prevPos = currPos; //Update previous position
-      }
-    }
-  }
-}
-
+const int velocidadMaxima = 255; // Ajusta la velocidad máxima según sea necesario
 
 void computeData() {
   // Get current position
-  currPos = {gps.location.lat(), gps.location.lng()};
-
+  currPos_lat = gps.location.lat();
+  currPos_lng = gps.location.lng();
+  
   // Compute distance
-  dist = sqrt(pow(currPos[0] - prevPos[0], 2) + pow(currPos[1] - prevPos[1], 2));
+  dist = sqrt(pow(currPos_lat - prevPos_lat, 2) + pow(currPos_lng - prevPos_lng, 2));
 
   // Compute velocity
   vel = dist / (currentMillis - lastPrintTime);
@@ -118,11 +61,11 @@ void sendData(){
   // Serial.print(" Pitch: "); Serial.print(accAngleY);
 
   // Print Latitude, Longitude, and Angle
-  Serial.print(gps.location.lat(), 9);
+  Serial.print(currPos_lat, 9);
   Serial.print(",");
-  Serial.print(gps.location.lng(), 9);
+  Serial.print(currPos_lng, 9);
   Serial.print(",");
-  Serial.println(vel);
+  Serial.println(gps.speed.kmph(),9);
 }
 
 void readIMUData() {
@@ -194,8 +137,8 @@ void calibrateIMU() {
 void go() {
   digitalWrite(in1, HIGH);
   digitalWrite(in2, LOW);
-  digitalWrite(in3, HIGH);
-  digitalWrite(in4, LOW);
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, HIGH);
   
   analogWrite(enA, velocidadMaxima);
   analogWrite(enB, velocidadMaxima);
@@ -204,8 +147,8 @@ void go() {
 void turnRight() {
   digitalWrite(in1, LOW);
   digitalWrite(in2, HIGH);
-  digitalWrite(in3, HIGH);
-  digitalWrite(in4, LOW);
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, HIGH);
   
   analogWrite(enA, velocidadMaxima);
   analogWrite(enB, velocidadMaxima);
@@ -219,4 +162,100 @@ digitalWrite(in3, LOW);
 digitalWrite(in4, LOW);
 analogWrite(enA, 0);
 analogWrite(enB, 0);
+}
+
+
+
+void setup() {
+  // Serial Monitor Setup (for ESP82)
+  Serial.begin(9600);
+
+  // Motor Setup
+  pinMode(in1, OUTPUT);
+  pinMode(in2, OUTPUT);
+  pinMode(in3, OUTPUT);
+  pinMode(in4, OUTPUT);
+  pinMode(enA, OUTPUT);
+  pinMode(enB, OUTPUT);
+
+  // IMU Setup
+  Wire.begin();
+  Wire.beginTransmission(MPU);
+  Wire.write(0x6B);
+  Wire.write(0x00);
+  Wire.endTransmission(true);
+
+  calibrateIMU(); // Calibrate IMU
+  delay(20);
+
+  // GPS Setup
+  gpsSerial.begin(9600);
+}
+
+enum State {
+  STATE_GO,
+  STATE_TURN_RIGHT,
+  STATE_WAIT,
+  STATE_STOP // New state to indicate stopping
+};
+
+unsigned long actionStartTime;
+State currentState = STATE_GO;
+int roundCount = 0;
+
+void loop() {
+  while (gpsSerial.available() > 0) {
+    if (gps.encode(gpsSerial.read())) {
+      if (gps.location.isUpdated()) {
+        // Get current time
+        currentMillis = millis();
+        // Compute distance and angle
+        computeData();
+
+        // Path Planning Algorithm
+        switch (currentState) {
+          case STATE_GO:
+            currentState = STATE_TURN_RIGHT;
+            go();
+            delay(7000);
+            break;
+
+          case STATE_TURN_RIGHT:
+            delay(1000);
+            currentState = STATE_WAIT;
+            turnRight();
+            roundCount++;
+            delay(375);
+            if (roundCount >= 4) { // Check if 4 rounds are completed
+              currentState = STATE_STOP;
+              stopMotors();
+            }
+            
+            break;
+
+          case STATE_WAIT:
+            if (roundCount < 4) {
+              currentState = STATE_GO;
+              stopMotors();
+              delay(10000);
+            }
+            
+            break;
+
+          case STATE_STOP:
+            stopMotors();
+            break;
+        }
+
+        // Check if it's time to update Server with new data
+        if (currentMillis - lastPrintTime >= printInterval) {
+          lastPrintTime = currentMillis; // Update the last print time
+          sendData();
+        }
+
+        prevPos_lat = currPos_lat;
+        prevPos_lng = currPos_lng; //Update previous position
+      }
+    }
+  }
 }
